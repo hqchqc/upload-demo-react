@@ -1,0 +1,41 @@
+.container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  background-color: #fff;
+  background: #77a1d3; /* fallback for old browsers */
+  background: -webkit-linear-gradient(
+    to right,
+    #e684ae,
+    #79cbca,
+    #77a1d3
+  ); /* Chrome 10-25, Safari 5.1-6 */
+  background: linear-gradient(
+    to right,
+    #e684ae,
+    #79cbca,
+    #77a1d3
+  ); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+}
+
+.box {
+  position: absolute;
+  width: 500px;
+  height: 200px;
+  margin: auto;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.progressBox {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+}
+
+.progress {
+  display: flex;
+  justify-content: space-between;
+}
