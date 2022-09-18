@@ -5,12 +5,17 @@ import {
   readdir,
   ensureDirSync,
   rename,
-  readFileSync,
-  writeFileSync,
+  openSync,
+  createWriteStream,
+  createReadStream,
+  closeSync,
+  move,
+  rm,
 } from 'fs-extra';
 import { CheckFileResp, CopyResp } from './app';
-import concat from 'concat-files';
-
+import MultiStream = require('multistream');
+import { rmdirSync, rmSync, unlinkSync } from 'fs';
+import { rmdir } from 'fs/promises';
 const UPLOAD_DIR = './uploadFile/uploads';
 
 // 查找文件是否存在
@@ -76,44 +81,68 @@ const getDirList = async (path: string): Promise<string[]> => {
 };
 
 // 获取文件chunks列表
-const getChunkList = async (fileNamePath, md5Path): Promise<CheckFileResp> => {
+// const getChunkList = async (fileNamePath, md5Path): Promise<CheckFileResp> => {
+const getChunkList = async (fileNamePath, md5Path): Promise<any> => {
   const isFileExit = await isExit(fileNamePath);
-  let result: CheckFileResp;
-
+  let result: any;
+  console.log('isFileExit', isFileExit);
   if (isFileExit) {
     // 文件存在
     result = {
-      status: 'SUCCESS',
-      message: '文件已存在',
-      type: 0,
-      file: {
-        isExit: true,
-        name: fileNamePath,
-      },
+      // status: 'SUCCESS',
+      // message: '文件已存在',
+      // type: 0,
+      // file: {
+      //   isExit: true,
+      //   name: fileNamePath,
+      // },
+
+      shouldUpload: false,
+      uploadedList: [],
     };
   } else {
     // 文件不存在 -> 判断文件夹是否存在 -> 存在代表之前上传过但是没有完全上传
     const isFolderExit = await isExit(md5Path);
     let fileList = [];
+    console.log('isFolderExit', isFolderExit);
     if (isFolderExit) {
       fileList = await getDirList(md5Path);
+      console.log('fileList', fileList);
       result = {
-        status: 'SUCCESS',
-        message: '存在对应文件夹',
-        type: 1,
-        fileList,
+        // status: 'SUCCESS',
+        // message: '存在对应文件夹',
+        // type: 1,
+        // fileList,
+        shouldUpload: true,
+        uploadedList: fileList,
       };
     } else {
       result = {
-        status: 'SUCCESS',
-        message: '文件不存在',
-        type: 2,
-        fileList,
+        // status: 'SUCCESS',
+        // message: '文件不存在',
+        // type: 2,
+        // fileList,
+        shouldUpload: true,
+        uploadedList: fileList,
       };
     }
   }
   return result;
 };
+
+const pipeStream = (path, writeStream) => {
+  return new Promise((resolve) => {
+    const readStream = createReadStream(path);
+    readStream.on('end', () => {
+      unlinkSync(path);
+      resolve(true);
+    });
+    readStream.pipe(writeStream);
+  });
+};
+
+const extractExt = (fileName) =>
+  fileName.slice(fileName.lastIndexOf('.'), fileName.length);
 
 @Injectable()
 export class AppService {
@@ -121,12 +150,22 @@ export class AppService {
     return 'Hello World!';
   }
 
-  async getCheckFile(
-    fileName: string,
-    fileMD5Value: string,
-  ): Promise<CheckFileResp> {
-    const fileNamePath = join(UPLOAD_DIR, fileName);
-    const md5Path = join(UPLOAD_DIR, fileMD5Value);
+  // async getCheckFile(
+  //   fileName: string,
+  //   fileMD5Value: string,
+  // ): Promise<CheckFileResp> {
+  //   const fileNamePath = join(UPLOAD_DIR, fileName);
+  //   const md5Path = join(UPLOAD_DIR, fileMD5Value);
+  //   const result = await getChunkList(fileNamePath, md5Path);
+  //   return result;
+  // }
+
+  async getCheckFile(fileName: string, fileMD5Value: string): Promise<any> {
+    const UPLOAD_DIR = resolve(__dirname, '..', 'target');
+    const ext = extractExt(fileName);
+    const fileNamePath = join(UPLOAD_DIR, `${fileName}${ext}`);
+    const md5Path = join(UPLOAD_DIR, `chunkDir_${fileMD5Value}`);
+    console.log('md5Path', md5Path);
     const result = await getChunkList(fileNamePath, md5Path);
     return result;
   }
@@ -157,32 +196,88 @@ export class AppService {
     }
   }
 
-  async getMergeFile(fileName, md5): Promise<CopyResp> {
-    const srcDir = join(UPLOAD_DIR, md5);
-    const fileArr = await getDirList(srcDir);
-    fileArr.sort((x, y) => Number(x) - Number(y));
+  // async getMergeFile(fileName, md5): Promise<CopyResp> {
+  //   const srcDir = join(UPLOAD_DIR, md5);
+  //   const fileArr = await getDirList(srcDir);
+  //   fileArr.sort((x, y) => Number(x) - Number(y));
 
-    for (let i = 0; i < fileArr.length; i++) {
-      fileArr[i] = `${srcDir}\\${fileArr[i]}`;
-    }
+  //   for (let i = 0; i < fileArr.length; i++) {
+  //     fileArr[i] = `${srcDir}\\${fileArr[i]}`;
+  //   }
 
-    const output = fileArr
-      .map((f) => {
-        return readFileSync(f).toString();
-      })
-      .join(';');
+  //   const outputPath = join(UPLOAD_DIR, fileName);
+  //   const fd = openSync(outputPath, 'w+');
+  //   const writeStream = createWriteStream(outputPath);
+  //   const readStreamList = fileArr.map((path) => createReadStream(path));
 
-    try {
-      writeFileSync(join(UPLOAD_DIR, fileName), output);
-      return {
-        status: 'SUCCESS',
-        message: '',
-      };
-    } catch (error) {
-      return {
-        status: 'FAILED',
-        message: '合并文件失败',
-      };
-    }
+  //   return new Promise((resolve, reject) => {
+  //     const multiStream = new MultiStream(readStreamList);
+  //     multiStream.pipe(writeStream);
+  //     multiStream.on('end', () => {
+  //       closeSync(fd);
+  //       resolve({
+  //         status: 'SUCCESS',
+  //         message: '',
+  //       });
+  //     });
+  //     multiStream.on('error', () => {
+  //       closeSync(fd);
+  //       reject({
+  //         status: 'FAILED',
+  //         message: '合并文件失败',
+  //       });
+  //     });
+  //   });
+  // }
+
+  async newUploadFile(fileHash, fileName, file, hash) {
+    const UPLOAD_DIR = resolve(__dirname, '..', 'target');
+    const chunkDir = resolve(UPLOAD_DIR, `chunkDir_${fileHash}`);
+    const filePath = resolve(UPLOAD_DIR, `${fileHash}${extractExt(fileName)}`);
+    ensureDirSync(chunkDir);
+    move(file[0].path, resolve(chunkDir, hash));
+  }
+
+  // async getMergeFile(fileName, size: number): Promise<any> {
+  //   const UPLOAD_DIR = resolve(__dirname, '..', 'target');
+  //   const filePath = resolve(UPLOAD_DIR, `${fileName}`);
+  //   const chunkDir = resolve(UPLOAD_DIR, 'chunkDir' + fileName);
+  //   const chunkPaths = await readdir(chunkDir);
+  //   chunkPaths.sort(
+  //     (a, b) => Number(a.split('-')[1]) - Number(b.split('-')[1]),
+  //   );
+  //   await Promise.all(
+  //     chunkPaths.map((chunkPath, index) =>
+  //       pipeStream(
+  //         resolve(chunkDir, chunkPath),
+  //         createWriteStream(filePath, {
+  //           start: index * size,
+  //         }),
+  //       ),
+  //     ),
+  //   );
+  //   rm(chunkDir, { recursive: true });
+  // }
+
+  async getMergeFile(fileName, size: number, fileHash: string): Promise<any> {
+    const ext = extractExt(fileName);
+    const UPLOAD_DIR = resolve(__dirname, '..', 'target');
+    const chunkDir = resolve(UPLOAD_DIR, `chunkDir_${fileHash}`);
+    const filePath = resolve(UPLOAD_DIR, `${fileName}${ext}`);
+    const chunkPaths = await readdir(chunkDir);
+    chunkPaths.sort(
+      (a, b) => Number(a.split('-')[1]) - Number(b.split('-')[1]),
+    );
+    await Promise.all(
+      chunkPaths.map((chunkPath, index) =>
+        pipeStream(
+          resolve(chunkDir, chunkPath),
+          createWriteStream(filePath, {
+            start: index * size,
+          }),
+        ),
+      ),
+    );
+    rmSync(chunkDir, { recursive: true });
   }
 }

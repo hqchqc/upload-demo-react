@@ -8,6 +8,8 @@ import axios from "axios";
 import "./App.css";
 import Dragger from "antd/lib/upload/Dragger";
 import { green } from "@ant-design/colors";
+import Upload from "./Upload";
+import Uploads from "./Uploads";
 
 const App: React.FC = () => {
   const [currentCheckProgress, setCurrentCheckProgress] = useState(0);
@@ -167,7 +169,7 @@ const App: React.FC = () => {
 
   return (
     <div className="container">
-      <div className="box">
+      {/* <div className="box">
         <Dragger {...props}>
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
@@ -194,7 +196,10 @@ const App: React.FC = () => {
             />
           </div>
         </div>
-      </div>
+      </div> */}
+
+      {/* <Upload /> */}
+      <Uploads />
     </div>
   );
 };
