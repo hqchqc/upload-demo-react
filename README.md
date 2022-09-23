@@ -16,4 +16,4 @@
 
 ## 目录说明
 
-service 目录下的是服务端的代码，service 目录下的 uploadFile 存放对应前端上传的文件
+service 目录下的是服务端的代码，service 目录下的 target 存放对应前端上传的文件

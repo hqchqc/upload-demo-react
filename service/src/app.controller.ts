@@ -3,15 +3,17 @@ import {
   Controller,
   Get,
   Post,
+  Headers,
   Query,
   UploadedFiles,
   UseInterceptors,
+  Res,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import {
+  AllFileData,
   CheckFileResp,
   CheckQuery,
-  CopyResp,
   MergeQuery,
   RequestFile,
 } from './app';
@@ -26,38 +28,40 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  // @Get('/check/file')
-  // getCheckFile(@Query() query: CheckQuery): Promise<CheckFileResp> {
-  //   const { fileName, fileMD5Value } = query;
-  //   return this.appService.getCheckFile(fileName, fileMD5Value);
-  // }
-
   @Get('/verify')
-  getCheckFile(@Query() query: any): Promise<CheckFileResp> {
+  getCheckFile(@Query() query: CheckQuery): Promise<CheckFileResp> {
     const { fileName, fileHash } = query;
     return this.appService.getCheckFile(fileName, fileHash);
   }
 
   @Get('/merge')
-  // getMergeFile(@Query() query: MergeQuery): Promise<CopyResp> {
-  //   const { fileName, md5 } = query;
-  //   return this.appService.getMergeFile(fileName, md5);
-  // }
-  getMergeFile(@Query() query: any): any {
+  getMergeFile(@Query() query: MergeQuery): Promise<void> {
     const { fileName, size, fileHash } = query;
-    console.log('fileName', fileName, size, fileHash);
     return this.appService.getMergeFile(fileName, size, fileHash);
+  }
+
+  @Get('/getFile')
+  getAllFile(): Promise<AllFileData[]> {
+    return this.appService.getAllFile();
+  }
+
+  @Get('/download')
+  downloadFile(
+    @Query() query: any,
+    @Headers() headers: any,
+    @Res() res: any,
+  ): any {
+    const { range } = headers;
+    const { fileName } = query;
+    return this.appService.downloadFile(range, res, fileName);
   }
 
   @Post('/upload')
   @UseInterceptors(AnyFilesInterceptor())
   uploadFile(
-    // @Body() body: RequestFile,
-    @Body() body: any,
+    @Body() body: RequestFile,
     @UploadedFiles() file: Array<Express.Multer.File>,
   ) {
-    // const { currentIndex, md5Value } = body;
-    // return this.appService.uploadFile(currentIndex, md5Value, file);
     const { fileHash, fileName, hash } = body;
     return this.appService.newUploadFile(fileHash, fileName, file, hash);
   }

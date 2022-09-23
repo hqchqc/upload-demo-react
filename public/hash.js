@@ -2,7 +2,6 @@ self.importScripts("./spark-md5.js");
 
 // 生成文件 hash
 self.onmessage = (e) => {
-  console.log("e", e);
   const { fileChunkList } = e.data;
   const spark = new self.SparkMD5.ArrayBuffer();
   let percentage = 0;
@@ -23,7 +22,7 @@ self.onmessage = (e) => {
         percentage += 100 / fileChunkList.length;
         self.postMessage({
           percentage,
-        }); // calculate recursively
+        });
         loadNext(count);
       }
     };

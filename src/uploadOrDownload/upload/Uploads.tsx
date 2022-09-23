@@ -1,6 +1,5 @@
 import {
   ClearOutlined,
-  CloudDownloadOutlined,
   CloudUploadOutlined,
   FolderAddOutlined,
   PauseCircleOutlined,
@@ -8,9 +7,9 @@ import {
 } from "@ant-design/icons";
 import { Button, message, Progress, Table } from "antd";
 import axios, { Canceler } from "axios";
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useState } from "react";
+import { sizeFilter } from "../../utils/formatSize";
 import "./Upload.css";
-import { sizeFilter } from "./utils/formatSize";
 
 type totalType = {
   file: null | File;
@@ -44,10 +43,8 @@ const Uploads: React.FC = () => {
   };
   const [status, setStatus] = useState(Status.wait);
   const [cancelList, setCancelList] = useState<Canceler[]>([]);
-  const controller = new AbortController();
   const [tableKey, setTableKey] = useState(0);
   const CancelToken = axios.CancelToken;
-  let cancel;
   const SIZE = 10 * 1024 * 1024; // 切片大小
   const BASE_URL = "http://localhost:3001/api";
 
@@ -93,7 +90,7 @@ const Uploads: React.FC = () => {
     });
   };
 
-  const createProgressHandle = (item: any, index) => {
+  const createProgressHandle = (item: any, index: number) => {
     return (e: { loaded: number; total: number }) => {
       item.percentage = parseInt(String((e.loaded / e.total) * 100));
       setData((source) => {
@@ -121,7 +118,6 @@ const Uploads: React.FC = () => {
   };
 
   const mergeRequest = async (fileHash: string) => {
-    console.log("totalFileInfo", totalFileInfo);
     const url = `${BASE_URL}/merge?size=${SIZE}&fileName=${totalFileInfo.file?.name}&fileHash=${fileHash}`;
     await axios.get(url);
     setStatus(Status.wait);
@@ -184,18 +180,21 @@ const Uploads: React.FC = () => {
     if (!totalFileInfo.file) return;
 
     setStatus(Status.uploading);
+    // 1. 创建文件切片
     const fileChunkList = createFileChunk(totalFileInfo?.file);
+    // 2. 根据切片计算hash值 (Web-worker)
     const hash = await calculateHash(fileChunkList);
     setTotalFileInfo((source) => ({
       ...source,
       hash,
     }));
+    // 3. 将hash传给服务端 判断文件是否已经存在服务器中
     const { shouldUpload, uploadedList } = await verifyUpload(
       totalFileInfo.file.name,
       hash
     );
     if (!shouldUpload) {
-      message.success("file upload success");
+      message.success("文件已存在 秒传成功！");
       setStatus(Status.wait);
       return;
     }
@@ -208,8 +207,9 @@ const Uploads: React.FC = () => {
       percentage: uploadedList.includes(index) ? 100 : 0,
     }));
     setData(dataSource);
+    // 4. 若文件不存在 或只存在一部分文件则上传文件
+    // 5. 所有切片上传完成后 发出合并请求 后端对文件进行合并保存
     await uploadChunks(uploadedList, dataSource, hash);
-    console.log("shouldUpload", shouldUpload, uploadedList);
   };
 
   const handlePause = () => {
@@ -241,6 +241,7 @@ const Uploads: React.FC = () => {
       worker: null,
     });
     setHashPercentage(0);
+    setFakeUploadPercentage(0);
   };
 
   const columns = [
@@ -272,7 +273,7 @@ const Uploads: React.FC = () => {
   ];
 
   return (
-    <div className="upload-container">
+    <>
       <div className="btns">
         <Button icon={<FolderAddOutlined />} className="btn-item">
           选择文件
@@ -309,9 +310,6 @@ const Uploads: React.FC = () => {
           onClick={handleReset}
         >
           清空
-        </Button>
-        <Button icon={<CloudDownloadOutlined />} className="btn-item">
-          下载
         </Button>
       </div>
       <div className="file-list">
@@ -364,7 +362,7 @@ const Uploads: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 };
 

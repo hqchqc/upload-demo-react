@@ -6,12 +6,14 @@ specifiers:
   '@types/react': ^18.0.17
   '@types/react-dom': ^18.0.6
   '@types/spark-md5': ^3.0.2
+  '@types/streamsaver': ^2.0.1
   '@vitejs/plugin-react': ^2.0.1
   antd: ^4.22.6
   axios: ^0.27.2
   react: ^18.2.0
   react-dom: ^18.2.0
   spark-md5: ^3.0.2
+  streamsaver: ^2.0.6
   typescript: ^4.6.4
   vite: ^3.0.7
 
@@ -23,11 +25,13 @@ dependencies:
   react: 18.2.0
   react-dom: 18.2.0_react@18.2.0
   spark-md5: 3.0.2
+  streamsaver: 2.0.6
 
 devDependencies:
   '@types/react': 18.0.17
   '@types/react-dom': 18.0.6
   '@types/spark-md5': 3.0.2
+  '@types/streamsaver': 2.0.1
   '@vitejs/plugin-react': 2.0.1_vite@3.0.9
   typescript: 4.7.4
   vite: 3.0.9
@@ -423,6 +427,10 @@ packages:
 
   /@types/spark-md5/3.0.2:
     resolution: {integrity: sha512-82E/lVRaqelV9qmRzzJ1PKTpyrpnT7mwdneKNJB9hUtypZDMggloDfFUCIqRRx3lYRxteCwXSq9c+W71Vf0QnQ==}
+    dev: true
+
+  /@types/streamsaver/2.0.1:
+    resolution: {integrity: sha512-I49NtT8w6syBI3Zg3ixCyygTHoTVMY0z2TMRcTgccdIsVd2MwlKk7ITLHLsJtgchUHcOd7QEARG9h0ifcA6l2Q==}
     dev: true
 
   /@vitejs/plugin-react/2.0.1_vite@3.0.9:
@@ -1603,6 +1611,10 @@ packages:
 
   /spark-md5/3.0.2:
     resolution: {integrity: sha512-wcFzz9cDfbuqe0FZzfi2or1sgyIrsDwmPwfZC4hiNidPdPINjeUwNfv5kldczoEAcjl9Y1L3SM7Uz2PUEQzxQw==}
+    dev: false
+
+  /streamsaver/2.0.6:
+    resolution: {integrity: sha512-LK4e7TfCV8HzuM0PKXuVUfKyCB1FtT9L0EGxsFk5Up8njj0bXK8pJM9+Wq2Nya7/jslmCQwRK39LFm55h7NBTw==}
     dev: false
 
   /string-convert/0.2.1:

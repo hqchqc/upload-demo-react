@@ -4,19 +4,12 @@ import {
   stat,
   readdir,
   ensureDirSync,
-  rename,
-  openSync,
   createWriteStream,
   createReadStream,
-  closeSync,
   move,
-  rm,
 } from 'fs-extra';
-import { CheckFileResp, CopyResp } from './app';
-import MultiStream = require('multistream');
-import { rmdirSync, rmSync, unlinkSync } from 'fs';
-import { rmdir } from 'fs/promises';
-const UPLOAD_DIR = './uploadFile/uploads';
+import { AllFileData, CheckFileResp } from './app';
+import { readdirSync, rmSync, statSync, unlinkSync } from 'fs';
 
 // 查找文件是否存在
 const isExit = (path: string): Promise<boolean> => {
@@ -26,36 +19,6 @@ const isExit = (path: string): Promise<boolean> => {
         resolve(false);
       } else {
         resolve(true);
-      }
-    });
-  });
-};
-
-// 文件夹是否存在，不存在则创建
-const folderIsExit = (path: string): Promise<boolean> => {
-  return new Promise(async (resolve) => {
-    await ensureDirSync(join(path));
-    resolve(true);
-  });
-};
-
-// 把文件从一个目录拷贝到别一个目录
-const copyFile = (src: string, dest: string): Promise<CopyResp> => {
-  return new Promise((resolve, reject) => {
-    rename(src, dest, (err) => {
-      let result: CopyResp;
-      if (err) {
-        result = {
-          status: 'FAILED',
-          message: '拷贝文件失败',
-        };
-        reject(err);
-      } else {
-        result = {
-          status: 'SUCCESS',
-          message: '拷贝文件成功',
-        };
-        resolve(result);
       }
     });
   });
@@ -81,22 +44,15 @@ const getDirList = async (path: string): Promise<string[]> => {
 };
 
 // 获取文件chunks列表
-// const getChunkList = async (fileNamePath, md5Path): Promise<CheckFileResp> => {
-const getChunkList = async (fileNamePath, md5Path): Promise<any> => {
+const getChunkList = async (
+  fileNamePath: string,
+  md5Path: string,
+): Promise<CheckFileResp> => {
   const isFileExit = await isExit(fileNamePath);
-  let result: any;
-  console.log('isFileExit', isFileExit);
+  let result: CheckFileResp;
   if (isFileExit) {
     // 文件存在
     result = {
-      // status: 'SUCCESS',
-      // message: '文件已存在',
-      // type: 0,
-      // file: {
-      //   isExit: true,
-      //   name: fileNamePath,
-      // },
-
       shouldUpload: false,
       uploadedList: [],
     };
@@ -104,24 +60,14 @@ const getChunkList = async (fileNamePath, md5Path): Promise<any> => {
     // 文件不存在 -> 判断文件夹是否存在 -> 存在代表之前上传过但是没有完全上传
     const isFolderExit = await isExit(md5Path);
     let fileList = [];
-    console.log('isFolderExit', isFolderExit);
     if (isFolderExit) {
       fileList = await getDirList(md5Path);
-      console.log('fileList', fileList);
       result = {
-        // status: 'SUCCESS',
-        // message: '存在对应文件夹',
-        // type: 1,
-        // fileList,
         shouldUpload: true,
         uploadedList: fileList,
       };
     } else {
       result = {
-        // status: 'SUCCESS',
-        // message: '文件不存在',
-        // type: 2,
-        // fileList,
         shouldUpload: true,
         uploadedList: fileList,
       };
@@ -144,130 +90,59 @@ const pipeStream = (path, writeStream) => {
 const extractExt = (fileName) =>
   fileName.slice(fileName.lastIndexOf('.'), fileName.length);
 
+const getAllFile = (path: string) => {
+  const fileInfo = [];
+  const files = readdirSync(path); //需要用到同步读取
+  files.forEach(walk);
+  function walk(file) {
+    const states = statSync(path + '/' + file);
+    fileInfo.push({
+      size: states.size,
+      fileName: file,
+    });
+  }
+  return fileInfo;
+};
+
 @Injectable()
 export class AppService {
   getHello(): string {
     return 'Hello World!';
   }
 
-  // async getCheckFile(
-  //   fileName: string,
-  //   fileMD5Value: string,
-  // ): Promise<CheckFileResp> {
-  //   const fileNamePath = join(UPLOAD_DIR, fileName);
-  //   const md5Path = join(UPLOAD_DIR, fileMD5Value);
-  //   const result = await getChunkList(fileNamePath, md5Path);
-  //   return result;
-  // }
-
-  async getCheckFile(fileName: string, fileMD5Value: string): Promise<any> {
+  // 1. 检查文件是否已经上传
+  async getCheckFile(
+    fileName: string,
+    fileMD5Value: string,
+  ): Promise<CheckFileResp> {
     const UPLOAD_DIR = resolve(__dirname, '..', 'target');
     const ext = extractExt(fileName);
     const fileNamePath = join(UPLOAD_DIR, `${fileName}${ext}`);
     const md5Path = join(UPLOAD_DIR, `chunkDir_${fileMD5Value}`);
-    console.log('md5Path', md5Path);
     const result = await getChunkList(fileNamePath, md5Path);
     return result;
   }
 
-  async uploadFile(
-    index: number,
-    md5Value: string,
-    file: Express.Multer.File[],
-  ): Promise<CopyResp> {
-    const folder = join(UPLOAD_DIR, md5Value);
-    const msg = await folderIsExit(folder);
-    if (msg) {
-      const destFile = resolve(folder, index?.toString());
-      const res = await copyFile(file?.[0]?.path, destFile);
-      if (res.status === 'SUCCESS') {
-        return {
-          status: 'SUCCESS',
-          data: index,
-          message: '',
-        };
-      } else {
-        return {
-          status: 'FAILED',
-          data: -1,
-          message: 'Error',
-        };
-      }
-    }
-  }
-
-  // async getMergeFile(fileName, md5): Promise<CopyResp> {
-  //   const srcDir = join(UPLOAD_DIR, md5);
-  //   const fileArr = await getDirList(srcDir);
-  //   fileArr.sort((x, y) => Number(x) - Number(y));
-
-  //   for (let i = 0; i < fileArr.length; i++) {
-  //     fileArr[i] = `${srcDir}\\${fileArr[i]}`;
-  //   }
-
-  //   const outputPath = join(UPLOAD_DIR, fileName);
-  //   const fd = openSync(outputPath, 'w+');
-  //   const writeStream = createWriteStream(outputPath);
-  //   const readStreamList = fileArr.map((path) => createReadStream(path));
-
-  //   return new Promise((resolve, reject) => {
-  //     const multiStream = new MultiStream(readStreamList);
-  //     multiStream.pipe(writeStream);
-  //     multiStream.on('end', () => {
-  //       closeSync(fd);
-  //       resolve({
-  //         status: 'SUCCESS',
-  //         message: '',
-  //       });
-  //     });
-  //     multiStream.on('error', () => {
-  //       closeSync(fd);
-  //       reject({
-  //         status: 'FAILED',
-  //         message: '合并文件失败',
-  //       });
-  //     });
-  //   });
-  // }
-
   async newUploadFile(fileHash, fileName, file, hash) {
     const UPLOAD_DIR = resolve(__dirname, '..', 'target');
     const chunkDir = resolve(UPLOAD_DIR, `chunkDir_${fileHash}`);
-    const filePath = resolve(UPLOAD_DIR, `${fileHash}${extractExt(fileName)}`);
     ensureDirSync(chunkDir);
     move(file[0].path, resolve(chunkDir, hash));
   }
 
-  // async getMergeFile(fileName, size: number): Promise<any> {
-  //   const UPLOAD_DIR = resolve(__dirname, '..', 'target');
-  //   const filePath = resolve(UPLOAD_DIR, `${fileName}`);
-  //   const chunkDir = resolve(UPLOAD_DIR, 'chunkDir' + fileName);
-  //   const chunkPaths = await readdir(chunkDir);
-  //   chunkPaths.sort(
-  //     (a, b) => Number(a.split('-')[1]) - Number(b.split('-')[1]),
-  //   );
-  //   await Promise.all(
-  //     chunkPaths.map((chunkPath, index) =>
-  //       pipeStream(
-  //         resolve(chunkDir, chunkPath),
-  //         createWriteStream(filePath, {
-  //           start: index * size,
-  //         }),
-  //       ),
-  //     ),
-  //   );
-  //   rm(chunkDir, { recursive: true });
-  // }
-
-  async getMergeFile(fileName, size: number, fileHash: string): Promise<any> {
-    const ext = extractExt(fileName);
+  async getMergeFile(
+    fileName: string,
+    size: number,
+    fileHash: string,
+  ): Promise<void> {
     const UPLOAD_DIR = resolve(__dirname, '..', 'target');
     const chunkDir = resolve(UPLOAD_DIR, `chunkDir_${fileHash}`);
-    const filePath = resolve(UPLOAD_DIR, `${fileName}${ext}`);
+    const filePath = resolve(UPLOAD_DIR, `${fileName}`);
     const chunkPaths = await readdir(chunkDir);
     chunkPaths.sort(
       (a, b) => Number(a.split('-')[1]) - Number(b.split('-')[1]),
     );
+    console.log('chunkPaths', chunkPaths);
     await Promise.all(
       chunkPaths.map((chunkPath, index) =>
         pipeStream(
@@ -279,5 +154,51 @@ export class AppService {
       ),
     );
     rmSync(chunkDir, { recursive: true });
+  }
+
+  async getAllFile() {
+    const UPLOAD_DIR = resolve(__dirname, '..', 'target');
+    const fileInfo = getAllFile(UPLOAD_DIR);
+
+    const fileDetailInfo = fileInfo?.map((item, index) => {
+      return {
+        ...item,
+        index,
+      };
+    });
+
+    return fileDetailInfo;
+  }
+
+  async downloadFile(range: string, res: any, fileName: string) {
+    console.log(range);
+    const UPLOAD_DIR = resolve(__dirname, '..', 'target');
+    const p = resolve(UPLOAD_DIR, fileName);
+    // 存在 range 请求头将返回范围请求的数据
+    if (range) {
+      // 获取范围请求的开始和结束位置
+      let [, start, end] = range.match(/(\d*)-(\d*)/);
+      let statObj;
+      // 错误处理
+      try {
+        statObj = await stat(p);
+      } catch (e) {
+        return 'Not Found';
+      }
+      // 文件总字节数
+      let total = statObj.size;
+      // 处理请求头中范围参数不传的问题
+      let starts = Number(start) ? parseInt(start) : 0;
+      let ends = Number(end) ? parseInt(end) : total - 1;
+
+      // 响应客户端
+      res.statusCode = 206;
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+      return createReadStream(p, { start: starts, end: ends }).pipe(res);
+    } else {
+      // 没有 range 请求头时将整个文件内容返回给客户端
+      createReadStream(p).pipe(res);
+    }
   }
 }
